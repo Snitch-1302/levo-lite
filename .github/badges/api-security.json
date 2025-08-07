@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "label": "API Security",
+  "message": "PASS",
+  "color": "brightgreen",
+  "style": "flat",
+  "namedLogo": "shield",
+  "logoColor": "white"
+} 

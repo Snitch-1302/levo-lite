@@ -1,0 +1,414 @@
+name: API Security Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      target_api:
+        description: 'Target API URL to test'
+        required: false
+        default: 'http://localhost:8000'
+
+jobs:
+  api-security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Start API server (if needed)
+      run: |
+        # Start the sample API server in background
+        python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        sleep 10  # Wait for server to start
+      continue-on-error: true
+    
+    - name: Run API Discovery
+      id: discovery
+      run: |
+        echo "🔍 Running API Discovery..."
+        python discovery/cli.py list-endpoints
+        echo "discovery_complete=true" >> $GITHUB_OUTPUT
+      continue-on-error: true
+    
+    - name: Generate OpenAPI Spec
+      id: openapi
+      run: |
+        echo "📄 Generating OpenAPI Specification..."
+        python openapi/cli.py generate --output openapi.yaml
+        echo "openapi_generated=true" >> $GITHUB_OUTPUT
+      continue-on-error: true
+    
+    - name: Run Vulnerability Scanner
+      id: vulnerability
+      run: |
+        echo "🔐 Running Vulnerability Scanner..."
+        python vulnerability/cli.py scan --output vulnerability_report.json
+        echo "vulnerability_scan_complete=true" >> $GITHUB_OUTPUT
+      continue-on-error: true
+    
+    - name: Run Sensitive Data Analysis
+      id: sensitive
+      run: |
+        echo "🧬 Running Sensitive Data Analysis..."
+        python sensitive/cli.py test --output sensitive_report.json
+        echo "sensitive_analysis_complete=true" >> $GITHUB_OUTPUT
+      continue-on-error: true
+    
+    - name: Run Policy Engine
+      id: policy
+      run: |
+        echo "📜 Running Policy Engine..."
+        python policy/cli.py test --output policy_report.json
+        echo "policy_evaluation_complete=true" >> $GITHUB_OUTPUT
+      continue-on-error: true
+    
+    - name: Analyze Results
+      id: analysis
+      run: |
+        echo "📊 Analyzing Security Results..."
+        
+        # Initialize counters
+        critical_issues=0
+        high_issues=0
+        medium_issues=0
+        low_issues=0
+        policy_violations=0
+        pii_exposures=0
+        
+        # Check vulnerability report
+        if [ -f "vulnerability_report.json" ]; then
+          echo "Checking vulnerability report..."
+          critical_vulns=$(python -c "
+import json
+try:
+    with open('vulnerability_report.json') as f:
+        data = json.load(f)
+    critical = sum(1 for v in data.get('vulnerabilities', []) 
+                  if v.get('severity') == 'critical')
+    print(critical)
+except:
+    print(0)
+")
+          critical_issues=$((critical_issues + critical_vulns))
+          
+          high_vulns=$(python -c "
+import json
+try:
+    with open('vulnerability_report.json') as f:
+        data = json.load(f)
+    high = sum(1 for v in data.get('vulnerabilities', []) 
+               if v.get('severity') == 'high')
+    print(high)
+except:
+    print(0)
+")
+          high_issues=$((high_issues + high_vulns))
+        fi
+        
+        # Check sensitive data report
+        if [ -f "sensitive_report.json" ]; then
+          echo "Checking sensitive data report..."
+          critical_pii=$(python -c "
+import json
+try:
+    with open('sensitive_report.json') as f:
+        data = json.load(f)
+    critical = sum(1 for m in data.get('matches', []) 
+                  if m.get('exposure_risk') == 'critical')
+    print(critical)
+except:
+    print(0)
+")
+          critical_issues=$((critical_issues + critical_pii))
+          pii_exposures=$((pii_exposures + critical_pii))
+        fi
+        
+        # Check policy report
+        if [ -f "policy_report.json" ]; then
+          echo "Checking policy report..."
+          policy_violations=$(python -c "
+import json
+try:
+    with open('policy_report.json') as f:
+        data = json.load(f)
+    violations = data.get('total_violations', 0)
+    print(violations)
+except:
+    print(0)
+")
+          
+          critical_policies=$(python -c "
+import json
+try:
+    with open('policy_report.json') as f:
+        data = json.load(f)
+    critical = data.get('violations_by_severity', {}).get('critical', 0)
+    print(critical)
+except:
+    print(0)
+")
+          critical_issues=$((critical_issues + critical_policies))
+        fi
+        
+        # Set output variables
+        echo "critical_issues=$critical_issues" >> $GITHUB_OUTPUT
+        echo "high_issues=$high_issues" >> $GITHUB_OUTPUT
+        echo "medium_issues=$medium_issues" >> $GITHUB_OUTPUT
+        echo "low_issues=$low_issues" >> $GITHUB_OUTPUT
+        echo "policy_violations=$policy_violations" >> $GITHUB_OUTPUT
+        echo "pii_exposures=$pii_exposures" >> $GITHUB_OUTPUT
+        
+        # Determine overall status
+        if [ $critical_issues -gt 0 ]; then
+          echo "status=CRITICAL" >> $GITHUB_OUTPUT
+          echo "build_status=failure" >> $GITHUB_OUTPUT
+        elif [ $high_issues -gt 0 ]; then
+          echo "status=HIGH" >> $GITHUB_OUTPUT
+          echo "build_status=failure" >> $GITHUB_OUTPUT
+        elif [ $policy_violations -gt 0 ]; then
+          echo "status=WARNING" >> $GITHUB_OUTPUT
+          echo "build_status=failure" >> $GITHUB_OUTPUT
+        else
+          echo "status=PASS" >> $GITHUB_OUTPUT
+          echo "build_status=success" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "📊 Analysis Complete:"
+        echo "  Critical Issues: $critical_issues"
+        echo "  High Issues: $high_issues"
+        echo "  Policy Violations: $policy_violations"
+        echo "  PII Exposures: $pii_exposures"
+        echo "  Overall Status: $(echo $status | tr '[:upper:]' '[:lower:]')"
+    
+    - name: Generate Security Report
+      id: report
+      run: |
+        echo "📋 Generating Security Report..."
+        
+        # Create markdown report
+        cat > security_report.md << EOF
+# 🔒 API Security Analysis Report
+        
+**Build:** ${{ github.run_number }}  
+**Commit:** ${{ github.sha }}  
+**Branch:** ${{ github.ref_name }}  
+**Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        
+## 📊 Summary
+        
+- **Overall Status:** ${{ steps.analysis.outputs.status }}
+- **Critical Issues:** ${{ steps.analysis.outputs.critical_issues }}
+- **High Issues:** ${{ steps.analysis.outputs.high_issues }}
+- **Medium Issues:** ${{ steps.analysis.outputs.medium_issues }}
+- **Low Issues:** ${{ steps.analysis.outputs.low_issues }}
+- **Policy Violations:** ${{ steps.analysis.outputs.policy_violations }}
+- **PII Exposures:** ${{ steps.analysis.outputs.pii_exposures }}
+        
+## 🔍 Test Results
+        
+### API Discovery
+- **Status:** ${{ steps.discovery.outputs.discovery_complete == 'true' && '✅ Complete' || '❌ Failed' }}
+        
+### OpenAPI Generation
+- **Status:** ${{ steps.openapi.outputs.openapi_generated == 'true' && '✅ Complete' || '❌ Failed' }}
+        
+### Vulnerability Scanner
+- **Status:** ${{ steps.vulnerability.outputs.vulnerability_scan_complete == 'true' && '✅ Complete' || '❌ Failed' }}
+        
+### Sensitive Data Analysis
+- **Status:** ${{ steps.sensitive.outputs.sensitive_analysis_complete == 'true' && '✅ Complete' || '❌ Failed' }}
+        
+### Policy Engine
+- **Status:** ${{ steps.policy.outputs.policy_evaluation_complete == 'true' && '✅ Complete' || '❌ Failed' }}
+        
+## 🚨 Critical Issues
+        
+EOF
+        
+        # Add critical issues details
+        if [ -f "vulnerability_report.json" ]; then
+          echo "### Vulnerability Issues" >> security_report.md
+          python -c "
+import json
+try:
+    with open('vulnerability_report.json') as f:
+        data = json.load(f)
+    for vuln in data.get('vulnerabilities', []):
+        if vuln.get('severity') in ['critical', 'high']:
+            print(f'- **{vuln.get(\"name\", \"Unknown\")}** ({vuln.get(\"severity\")})')
+            print(f'  - {vuln.get(\"description\", \"No description\")}')
+            print(f'  - Endpoint: {vuln.get(\"endpoint\", \"Unknown\")}')
+except:
+    pass
+" >> security_report.md
+        fi
+        
+        if [ -f "sensitive_report.json" ]; then
+          echo "### Sensitive Data Issues" >> security_report.md
+          python -c "
+import json
+try:
+    with open('sensitive_report.json') as f:
+        data = json.load(f)
+    for match in data.get('matches', []):
+        if match.get('exposure_risk') in ['critical', 'high']:
+            print(f'- **{match.get(\"data_type\", \"Unknown\")}** ({match.get(\"exposure_risk\")})')
+            print(f'  - Location: {match.get(\"location\", \"Unknown\")}')
+            print(f'  - Field: {match.get(\"field_name\", \"Unknown\")}')
+except:
+    pass
+" >> security_report.md
+        fi
+        
+        if [ -f "policy_report.json" ]; then
+          echo "### Policy Violations" >> security_report.md
+          python -c "
+import json
+try:
+    with open('policy_report.json') as f:
+        data = json.load(f)
+    for evaluation in data.get('evaluations', []):
+        for violation in evaluation.get('violations', []):
+            if violation.get('severity') in ['critical', 'high']:
+                print(f'- **{violation.get(\"rule_name\", \"Unknown\")}** ({violation.get(\"severity\")})')
+                print(f'  - Endpoint: {violation.get(\"endpoint\", \"Unknown\")}')
+                print(f'  - Description: {violation.get(\"description\", \"No description\")}')
+except:
+    pass
+" >> security_report.md
+        fi
+        
+        echo "## 📋 Recommendations" >> security_report.md
+        echo "" >> security_report.md
+        
+        if [ ${{ steps.analysis.outputs.critical_issues }} -gt 0 ]; then
+          echo "- 🚨 **CRITICAL**: Address all critical security issues immediately"
+          echo "- 🔐 Review authentication and authorization mechanisms"
+          echo "- 🛡️ Implement proper input validation and sanitization"
+        fi
+        
+        if [ ${{ steps.analysis.outputs.policy_violations }} -gt 0 ]; then
+          echo "- 📜 Review and update security policies"
+          echo "- 🔍 Monitor API traffic for policy compliance"
+        fi
+        
+        if [ ${{ steps.analysis.outputs.pii_exposures }} -gt 0 ]; then
+          echo "- 🧬 Implement data masking for sensitive information"
+          echo "- 🔒 Ensure proper encryption for PII data"
+        fi
+        
+        echo "## 🔗 Artifacts" >> security_report.md
+        echo "" >> security_report.md
+        echo "- [Vulnerability Report](vulnerability_report.json)" >> security_report.md
+        echo "- [Sensitive Data Report](sensitive_report.json)" >> security_report.md
+        echo "- [Policy Report](policy_report.json)" >> security_report.md
+        echo "- [OpenAPI Spec](openapi.yaml)" >> security_report.md
+        
+        echo "report_generated=true" >> $GITHUB_OUTPUT
+    
+    - name: Upload Security Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: |
+          security_report.md
+          vulnerability_report.json
+          sensitive_report.json
+          policy_report.json
+          openapi.yaml
+        retention-days: 30
+    
+    - name: Create Security Badge
+      id: badge
+      run: |
+        status="${{ steps.analysis.outputs.status }}"
+        color=""
+        
+        case $status in
+          "PASS")
+            color="brightgreen"
+            ;;
+          "WARNING")
+            color="yellow"
+            ;;
+          "HIGH")
+            color="orange"
+            ;;
+          "CRITICAL")
+            color="red"
+            ;;
+          *)
+            color="lightgrey"
+            ;;
+        esac
+        
+        echo "badge_url=https://img.shields.io/badge/API%20Security-$status-$color" >> $GITHUB_OUTPUT
+        echo "badge_markdown=[![API Security](https://img.shields.io/badge/API%20Security-$status-$color)](https://github.com/${{ github.repository }}/actions)" >> $GITHUB_OUTPUT
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const status = '${{ steps.analysis.outputs.status }}';
+          const criticalIssues = '${{ steps.analysis.outputs.critical_issues }}';
+          const highIssues = '${{ steps.analysis.outputs.high_issues }}';
+          const policyViolations = '${{ steps.analysis.outputs.policy_violations }}';
+          
+          let comment = `## 🔒 API Security Analysis
+          
+          **Status:** ${status}
+          **Critical Issues:** ${criticalIssues}
+          **High Issues:** ${highIssues}
+          **Policy Violations:** ${policyViolations}
+          
+          [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          ${status === 'PASS' ? '✅ All security checks passed!' : '⚠️ Security issues detected. Please review the report.'}`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            body: comment
+          });
+    
+    - name: Fail on Critical Issues
+      if: steps.analysis.outputs.critical_issues > 0
+      run: |
+        echo "🚨 CRITICAL SECURITY ISSUES DETECTED"
+        echo "Build will fail due to critical security vulnerabilities."
+        exit 1
+    
+    - name: Fail on High Issues
+      if: steps.analysis.outputs.high_issues > 0
+      run: |
+        echo "⚠️ HIGH SECURITY ISSUES DETECTED"
+        echo "Build will fail due to high severity security vulnerabilities."
+        exit 1
+    
+    - name: Fail on Policy Violations
+      if: steps.analysis.outputs.policy_violations > 0
+      run: |
+        echo "📜 POLICY VIOLATIONS DETECTED"
+        echo "Build will fail due to policy violations."
+        exit 1
+    
+    - name: Success
+      if: steps.analysis.outputs.build_status == 'success'
+      run: |
+        echo "✅ All security checks passed!"
+        echo "API Security Status: PASS" 

@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Main LevoLite application
+  levolite:
+    build: .
+    ports:
+      - "8000:8000"  # FastAPI backend
+      - "3000:3000"  # React frontend (development)
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=sqlite:///./data/levolite.db
+    command: >
+      sh -c "
+        echo '🚀 Starting LevoLite API Security Analyzer...' &&
+        echo '📊 Initializing database...' &&
+        python -c 'from app.database import init_db; init_db()' &&
+        echo '🔍 Running API discovery...' &&
+        python discovery/interceptor.py --background &&
+        echo '📄 Generating OpenAPI spec...' &&
+        python openapi/cli.py generate --output openapi.yaml &&
+        echo '🔐 Running vulnerability scan...' &&
+        python vulnerability/cli.py scan --output vulnerability_report.json &&
+        echo '🧬 Running sensitive data analysis...' &&
+        python sensitive/cli.py test --output sensitive_report.json &&
+        echo '📜 Running policy evaluation...' &&
+        python policy/cli.py test --output policy_report.json &&
+        echo '🌐 Starting FastAPI server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend development server (optional)
+  frontend-dev:
+    build: .
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    working_dir: /app/frontend
+    command: npm start
+    depends_on:
+      - levolite
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+
+  # Sample vulnerable API for testing
+  sample-api:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - PYTHONPATH=/app
+
+volumes:
+  data:
+  reports:
+  logs: 
