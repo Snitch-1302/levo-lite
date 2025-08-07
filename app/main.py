@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
 
-from database import get_db, User, Profile, init_db
-from models import (
+from app.database import get_db, User, Profile, init_db
+from app.models import (
     User as UserModel, 
     Profile as ProfileModel,
     LoginRequest, 
@@ -15,7 +15,7 @@ from models import (
     SearchResponse,
     Message
 )
-from auth import (
+from app.auth import (
     authenticate_user, 
     create_access_token, 
     get_current_user, 
@@ -23,7 +23,7 @@ from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from datetime import timedelta
-from dashboard import router as dashboard_router
+from app.dashboard import router as dashboard_router
 
 # Initialize FastAPI app
 app = FastAPI(

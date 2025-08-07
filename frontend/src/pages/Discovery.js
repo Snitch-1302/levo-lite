@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MagnifyingGlassIcon, FilterIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, FunnelIcon } from '@heroicons/react/24/outline';
 import StatusBadge from '../components/StatusBadge';
 import { fetchDiscoveryData } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
@@ -85,7 +85,7 @@ function Discovery() {
 
           {/* Method Filter */}
           <div className="flex items-center space-x-2">
-            <FilterIcon className="h-5 w-5 text-gray-400" />
+            <FunnelIcon className="h-5 w-5 text-gray-400" />
             <select
               value={filterMethod}
               onChange={(e) => setFilterMethod(e.target.value)}

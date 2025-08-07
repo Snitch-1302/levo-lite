@@ -10,7 +10,7 @@ import sys
 from mitmproxy import ctx
 from mitmproxy import http
 from mitmproxy import options
-from mitmproxy.proxy.config import ProxyConfig
+from mitmproxy.addons.proxyserver import ProxyConfig
 from mitmproxy.proxy.server import ProxyServer
 from mitmproxy.tools.dump import DumpMaster
 

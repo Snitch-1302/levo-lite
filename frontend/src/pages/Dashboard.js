@@ -11,6 +11,7 @@ import {
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
 import { formatDistanceToNow } from 'date-fns';
+import { ChartBarIcon } from '@heroicons/react/24/outline';
 
 function Dashboard({ data }) {
   const [dashboardData, setDashboardData] = useState(data || {});
