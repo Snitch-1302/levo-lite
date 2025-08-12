@@ -10,7 +10,7 @@ const api = axios.create({
 // Dashboard data
 export const fetchDashboardData = async () => {
   try {
-    const response = await api.get('/dashboard');
+    const response = await api.get('/api/dashboard');
     return response.data;
   } catch (error) {
     // Fallback to mock data if API is not available
@@ -21,7 +21,7 @@ export const fetchDashboardData = async () => {
 // Discovery endpoints
 export const fetchDiscoveryData = async () => {
   try {
-    const response = await api.get('/discovery/endpoints');
+    const response = await api.get('/api/discovery/endpoints');
     return response.data;
   } catch (error) {
     return getMockDiscoveryData();
@@ -31,7 +31,7 @@ export const fetchDiscoveryData = async () => {
 // Vulnerability data
 export const fetchVulnerabilityData = async () => {
   try {
-    const response = await api.get('/vulnerability/report');
+    const response = await api.get('/api/vulnerability/report');
     return response.data;
   } catch (error) {
     return getMockVulnerabilityData();
@@ -71,7 +71,7 @@ export const fetchReports = async () => {
 // Export functions
 export const exportReport = async (type, format = 'json') => {
   try {
-    const response = await api.get(`/export/${type}`, {
+    const response = await api.get(`/api/export/${type}`, {
       params: { format },
       responseType: 'blob',
     });

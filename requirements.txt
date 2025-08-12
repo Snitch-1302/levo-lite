@@ -9,7 +9,6 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-dotenv
 tabulate
-openapi-schema-pydantic
 pyyaml
 colorama
 spacy

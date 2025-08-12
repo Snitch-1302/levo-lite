@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 CLI interface for LevoLite Sensitive Data Classifier
 """
@@ -13,6 +14,12 @@ from pathlib import Path
 from models import ClassifierConfig, DetectionPattern, SensitiveDataType, SeverityLevel
 from classifier import SensitiveDataClassifier
 
+# Set UTF-8 encoding for Windows compatibility
+if sys.platform.startswith('win'):
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+                                  
 def create_default_config() -> ClassifierConfig:
     """Create default classifier configuration"""
     return ClassifierConfig(
@@ -550,7 +557,7 @@ def print_summary(report):
         for data_type, count in report.data_type_breakdown.items():
             print(f"  - {data_type.value}: {count}")
         
-        print(f"\nBy Risk Level:")
+        print(f"By Risk Level:")
         for risk, count in report.risk_breakdown.items():
             print(f"  - {risk.value}: {count}")
         
@@ -562,4 +569,4 @@ def print_summary(report):
         print(f"\n✅ No sensitive data found!")
 
 if __name__ == "__main__":
-    main() 
+    main()

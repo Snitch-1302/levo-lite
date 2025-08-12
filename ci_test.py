@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 CI/CD Test Script for LevoLite
 Runs all security tests and generates summary for GitHub Actions
@@ -8,9 +9,15 @@ import os
 import sys
 import json
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
+# Set UTF-8 encoding for Windows compatibility
+if sys.platform.startswith('win'):
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+                                  
 def run_command(command, description):
     """Run a command and return success status"""
     print(f"🔍 {description}...")
@@ -31,7 +38,7 @@ def analyze_results():
     print("📊 Analyzing test results...")
     
     summary = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "tests": {},
         "issues": {
             "critical": 0,
@@ -239,7 +246,7 @@ def main():
     
     # Run all security tests
     tests = [
-        ("python discovery/cli.py list-endpoints", "API Discovery"),
+        ("python discovery/cli.py list", "API Discovery"),
         ("python openapi/cli.py generate --output openapi.yaml", "OpenAPI Generation"),
         ("python vulnerability/cli.py scan --output vulnerability_report.json", "Vulnerability Scanner"),
         ("python sensitive/cli.py test --output sensitive_report.json", "Sensitive Data Analysis"),
@@ -281,4 +288,4 @@ def main():
         sys.exit(0)
 
 if __name__ == "__main__":
-    main() 
+    main()
