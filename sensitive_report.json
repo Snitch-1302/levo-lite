@@ -1,0 +1,283 @@
+{
+  "id": null,
+  "report_name": "Sensitive Data Analysis - 2025-08-12 13:55:50",
+  "target_api": "http://localhost:8000",
+  "generated_at": "2025-08-12 13:55:50.886377",
+  "total_requests_analyzed": 3,
+  "requests_with_sensitive_data": 3,
+  "total_sensitive_matches": 9,
+  "data_type_breakdown": {
+    "email": 3,
+    "token": 3,
+    "phone": 1,
+    "ssn": 1,
+    "credit_card": 1
+  },
+  "location_breakdown": {
+    "request_body": 2,
+    "response_header": 1,
+    "response_body": 4,
+    "request_header": 2
+  },
+  "risk_breakdown": {
+    "medium": 4,
+    "high": 3,
+    "critical": 2
+  },
+  "analyses": [
+    {
+      "id": null,
+      "endpoint": "/login",
+      "method": "POST",
+      "timestamp": "2025-08-12 13:55:50.880669",
+      "request_headers": {
+        "Content-Type": "application/json"
+      },
+      "request_body": {
+        "username": "user@example.com",
+        "password": "secretpassword123",
+        "remember_me": true
+      },
+      "request_params": {},
+      "response_headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "response_body": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "user_id": 123,
+        "email": "user@example.com"
+      },
+      "response_status": 200,
+      "sensitive_data_found": [
+        {
+          "id": null,
+          "data_type": "email",
+          "location": "request_body",
+          "field_name": "username",
+          "value": "u***@e******.com",
+          "confidence": 0.9,
+          "pattern_matched": "Email Address",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": false,
+          "is_masked": false,
+          "exposure_risk": "medium",
+          "detected_at": "2025-08-12 13:55:50.884990"
+        },
+        {
+          "id": null,
+          "data_type": "token",
+          "location": "response_header",
+          "field_name": "Authorization",
+          "value": "Be******************************************..",
+          "confidence": 0.8,
+          "pattern_matched": "Bearer Token",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": true,
+          "is_masked": false,
+          "exposure_risk": "medium",
+          "detected_at": "2025-08-12 13:55:50.885160"
+        },
+        {
+          "id": null,
+          "data_type": "email",
+          "location": "response_body",
+          "field_name": "email",
+          "value": "u***@e******.com",
+          "confidence": 0.9,
+          "pattern_matched": "Email Address",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": false,
+          "is_masked": false,
+          "exposure_risk": "high",
+          "detected_at": "2025-08-12 13:55:50.885251"
+        }
+      ],
+      "total_matches": 3,
+      "has_critical_data": false,
+      "has_high_risk_data": true,
+      "overall_risk": "high",
+      "recommendations": [
+        "High-risk sensitive data found - review data handling practices",
+        "Authentication tokens found - ensure secure token handling",
+        "Sensitive data in responses - implement proper authorization checks"
+      ]
+    },
+    {
+      "id": null,
+      "endpoint": "/profile",
+      "method": "GET",
+      "timestamp": "2025-08-12 13:55:50.885435",
+      "request_headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "request_body": null,
+      "request_params": {},
+      "response_headers": {
+        "Content-Type": "application/json"
+      },
+      "response_body": {
+        "user_id": 123,
+        "full_name": "John Doe",
+        "email": "john.doe@example.com",
+        "phone": "555-123-4567",
+        "address": "123 Main St, Anytown, USA",
+        "ssn": "123-45-6789",
+        "date_of_birth": "1990-01-15"
+      },
+      "response_status": 200,
+      "sensitive_data_found": [
+        {
+          "id": null,
+          "data_type": "token",
+          "location": "request_header",
+          "field_name": "Authorization",
+          "value": "Be******************************************..",
+          "confidence": 0.8,
+          "pattern_matched": "Bearer Token",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": true,
+          "is_masked": false,
+          "exposure_risk": "medium",
+          "detected_at": "2025-08-12 13:55:50.885523"
+        },
+        {
+          "id": null,
+          "data_type": "email",
+          "location": "response_body",
+          "field_name": "email",
+          "value": "j*******@e******.com",
+          "confidence": 0.9,
+          "pattern_matched": "Email Address",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": false,
+          "is_masked": false,
+          "exposure_risk": "high",
+          "detected_at": "2025-08-12 13:55:50.885650"
+        },
+        {
+          "id": null,
+          "data_type": "phone",
+          "location": "response_body",
+          "field_name": "phone",
+          "value": "555-***-4567",
+          "confidence": 0.8,
+          "pattern_matched": "Phone Number",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": false,
+          "is_masked": false,
+          "exposure_risk": "high",
+          "detected_at": "2025-08-12 13:55:50.885721"
+        },
+        {
+          "id": null,
+          "data_type": "ssn",
+          "location": "response_body",
+          "field_name": "ssn",
+          "value": "***-**-6789",
+          "confidence": 0.95,
+          "pattern_matched": "Social Security Number",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": false,
+          "is_masked": false,
+          "exposure_risk": "critical",
+          "detected_at": "2025-08-12 13:55:50.885771"
+        }
+      ],
+      "total_matches": 4,
+      "has_critical_data": true,
+      "has_high_risk_data": true,
+      "overall_risk": "critical",
+      "recommendations": [
+        "Critical sensitive data detected - implement encryption and access controls",
+        "High-risk sensitive data found - review data handling practices",
+        "SSN detected - ensure proper data protection measures",
+        "Authentication tokens found - ensure secure token handling",
+        "Sensitive data in responses - implement proper authorization checks"
+      ]
+    },
+    {
+      "id": null,
+      "endpoint": "/payment",
+      "method": "POST",
+      "timestamp": "2025-08-12 13:55:50.885917",
+      "request_headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "request_body": {
+        "card_number": "4111-1111-1111-1111",
+        "expiry_date": "12/25",
+        "cvv": "123",
+        "amount": 99.99,
+        "currency": "USD"
+      },
+      "request_params": {},
+      "response_headers": {
+        "Content-Type": "application/json"
+      },
+      "response_body": {
+        "transaction_id": "txn_123456789",
+        "status": "success",
+        "amount": 99.99,
+        "currency": "USD"
+      },
+      "response_status": 200,
+      "sensitive_data_found": [
+        {
+          "id": null,
+          "data_type": "token",
+          "location": "request_header",
+          "field_name": "Authorization",
+          "value": "Be******************************************..",
+          "confidence": 0.8,
+          "pattern_matched": "Bearer Token",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": true,
+          "is_masked": false,
+          "exposure_risk": "medium",
+          "detected_at": "2025-08-12 13:55:50.885999"
+        },
+        {
+          "id": null,
+          "data_type": "credit_card",
+          "location": "request_body",
+          "field_name": "card_number",
+          "value": "****-****-****-1111",
+          "confidence": 0.85,
+          "pattern_matched": "Credit Card Number",
+          "context": null,
+          "line_number": null,
+          "is_encrypted": false,
+          "is_masked": false,
+          "exposure_risk": "critical",
+          "detected_at": "2025-08-12 13:55:50.886117"
+        }
+      ],
+      "total_matches": 2,
+      "has_critical_data": true,
+      "has_high_risk_data": true,
+      "overall_risk": "critical",
+      "recommendations": [
+        "Critical sensitive data detected - implement encryption and access controls",
+        "High-risk sensitive data found - review data handling practices",
+        "Credit card data found - ensure PCI DSS compliance",
+        "Authentication tokens found - ensure secure token handling"
+      ]
+    }
+  ],
+  "overall_risk_score": 10.0,
+  "overall_risk_level": "critical",
+  "compliance_issues": [
+    "PCI DSS compliance required for credit card data",
+    "GDPR/CCPA compliance required for SSN data",
+    "Email data handling requires privacy compliance"
+  ]
+}
