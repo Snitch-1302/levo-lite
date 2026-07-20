@@ -314,9 +314,17 @@ def run_interceptor(config: DiscoveryConfig):
     )
     
     # Create proxy server
-    config = ProxyConfig(opts)
+    # BUG FIX: this used to reassign the function's own `config` parameter
+    # (a DiscoveryConfig, holding target_host/target_port/proxy_port) to a
+    # completely different object -- mitmproxy's internal ProxyConfig.
+    # Every later line reading config.target_host / config.proxy_port was
+    # then silently reading from the wrong object, which doesn't have those
+    # attributes at all -- this would crash with an AttributeError the
+    # moment it tried to print the target/proxy info below. Using a
+    # separate variable name keeps both objects intact.
+    proxy_config = ProxyConfig(opts)
     master = DumpMaster(opts)
-    master.server = ProxyServer(config)
+    master.server = ProxyServer(proxy_config)
     
     # Add interceptor
     master.addons.add(interceptor)
@@ -336,7 +344,9 @@ def run_interceptor(config: DiscoveryConfig):
         print(f"🎯 Target: {config.target_host}:{config.target_port}")
         print("💡 To use the proxy, set your HTTP_PROXY environment variable:")
         print(f"   export HTTP_PROXY=http://localhost:{config.proxy_port}")
-        print("   export HTTPS_PROXY=http://localhost:{config.proxy_port}")
+        # BUG FIX: missing 'f' prefix meant this printed the literal text
+        # "{config.proxy_port}" instead of substituting the real port number.
+        print(f"   export HTTPS_PROXY=http://localhost:{config.proxy_port}")
         print("\n🔍 Press Ctrl+C to stop discovery\n")
         
         master.run()
@@ -375,4 +385,4 @@ def main():
     run_interceptor(config)
 
 if __name__ == "__main__":
-    main() 
+    main()
