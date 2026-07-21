@@ -2,8 +2,10 @@ import sqlite3
 import json
 import argparse
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from tabulate import tabulate
+
+from discovery_models import DiscoverySummary, HTTPMethod
 
 class DiscoveryCLI:
     """CLI interface for API discovery results"""
@@ -176,7 +178,11 @@ class DiscoveryCLI:
             if endpoint_data.get(field):
                 try:
                     endpoint_data[field] = json.loads(endpoint_data[field])
-                except:
+                except (json.JSONDecodeError, TypeError):
+                    # BUG FIX: a bare `except:` here would also catch things
+                    # like KeyboardInterrupt, silently swallowing them.
+                    # This field's value just isn't valid JSON (or isn't a
+                    # string at all) -- leave it as-is and move on.
                     pass
         
         conn.close()
@@ -254,6 +260,80 @@ class DiscoveryCLI:
         
         print(tabulate(table_data, headers=headers, tablefmt="grid"))
     
+    def get_typed_summary(self) -> Optional[DiscoverySummary]:
+        """
+        ADDED: builds a properly validated DiscoverySummary (from
+        models.py) instead of the loose dict get_summary() above returns.
+
+        This model was previously defined but never actually used anywhere
+        in the project -- get_summary() has always returned a plain dict.
+        This method is purely additive: get_summary() and print_summary()
+        are both completely unchanged, so nothing that already depended on
+        them is affected. This just gives the DiscoverySummary model a
+        real purpose, for anywhere a validated, typed object is more
+        useful than a loose dict (e.g. exporting a summary as part of a
+        larger typed report, or catching a malformed field at
+        construction time instead of silently passing bad data along).
+
+        Returns None if there's no data yet (fresh/empty discovery.db).
+        """
+        summary = self.get_summary()
+        overall = summary['overall']
+
+        if overall['total_endpoints'] == 0:
+            return None
+
+        methods_used = [HTTPMethod(m) for m, _count in summary['methods']]
+
+        # Approximation: treating "vulnerable" as the union of the two
+        # flag counts. This can double-count an endpoint flagged with BOTH
+        # potential_idor and missing_auth -- a limitation worth knowing
+        # about rather than presenting as an exact figure.
+        vulnerable_endpoints = overall['idor_endpoints'] + overall['missing_auth_endpoints']
+
+        # Approximate the session duration from the earliest session start
+        # time to the most recently seen endpoint activity. Falls back to
+        # 0.0 if timestamps can't be parsed (e.g. no sessions recorded yet).
+        discovery_duration = 0.0
+        try:
+            all_endpoints = self.list_endpoints()
+            if summary['sessions'] and all_endpoints:
+                start_times = [
+                    datetime.fromisoformat(s[3]) for s in summary['sessions'] if s[3]
+                ]
+                last_seen_times = [
+                    datetime.fromisoformat(e['last_seen']) for e in all_endpoints if e['last_seen']
+                ]
+                if start_times and last_seen_times:
+                    discovery_duration = (max(last_seen_times) - min(start_times)).total_seconds()
+        except (ValueError, TypeError):
+            pass  # keep discovery_duration at 0.0 if any timestamp is malformed
+
+        most_accessed = self.list_endpoints()[:5]  # already ordered by request_count DESC
+
+        security_findings = []
+        for ep in self.list_endpoints():
+            if ep['potential_idor']:
+                security_findings.append({
+                    'path': ep['path'], 'method': ep['method'], 'issue': 'potential_idor'
+                })
+            if ep['missing_auth']:
+                security_findings.append({
+                    'path': ep['path'], 'method': ep['method'], 'issue': 'missing_auth'
+                })
+
+        return DiscoverySummary(
+            total_endpoints=overall['total_endpoints'],
+            unique_paths=overall['unique_paths'],
+            methods_used=methods_used,
+            auth_endpoints=overall['auth_endpoints'],
+            sensitive_endpoints=overall['sensitive_endpoints'],
+            vulnerable_endpoints=vulnerable_endpoints,
+            discovery_duration=discovery_duration,
+            most_accessed_endpoints=most_accessed,
+            security_findings=security_findings
+        )
+    
     def print_summary(self):
         """Print discovery summary"""
         summary = self.get_summary()
@@ -299,7 +379,8 @@ def main():
     list_parser.add_argument('--limit', type=int, help='Limit number of results')
     
     # Summary command
-    subparsers.add_parser('summary', help='Show discovery summary')
+    summary_parser = subparsers.add_parser('summary', help='Show discovery summary')
+    summary_parser.add_argument('--json', action='store_true', help='Output as validated JSON (via the DiscoverySummary model) instead of the default text format')
     
     # Details command
     details_parser = subparsers.add_parser('details', help='Show details for specific endpoint')
@@ -343,7 +424,14 @@ def main():
         print(f"\nFound {len(endpoints)} endpoints")
     
     elif args.command == 'summary':
-        cli.print_summary()
+        if args.json:
+            typed_summary = cli.get_typed_summary()
+            if typed_summary:
+                print(typed_summary.model_dump_json(indent=2))
+            else:
+                print(json.dumps({"message": "No discovery data available yet"}))
+        else:
+            cli.print_summary()
     
     elif args.command == 'details':
         details = cli.get_endpoint_details(args.path, args.method)
@@ -364,4 +452,4 @@ def main():
         print(result)
 
 if __name__ == "__main__":
-    main() 
+    main()
