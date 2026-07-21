@@ -113,4 +113,4 @@ class DiscoverySummary(BaseModel):
     security_findings: List[Dict[str, Any]]
     
     class Config:
-        from_attributes = True 
+        from_attributes = True
